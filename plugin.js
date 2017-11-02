@@ -8,20 +8,62 @@
 CKEDITOR.plugins.add('texttransform',
     {
 
-        // define lang codes for available lang files here
         lang: 'en,tr,fr',
 
-        // plugin initialise
-        init: function(editor)
-        {
-            // set num for switcher loop
+        init: function (editor) {
+            // baş harfleri büyütmenin counteri
             var num = 0;
 
-            // add transformTextSwitch command to be used with button
+            // seçili texti çevirir
+            var transformSelectedText = function (editor, transformFunc) {
+
+                var selection = editor.getSelection();
+                if (selection.getSelectedText().length > 0) {
+
+                    var range = selection.getRanges()[0],
+                        walker = new CKEDITOR.dom.walker(range),
+                        node,
+                        nodeText;
+
+                    while ((node = walker.next())) {
+
+                        if (node.type == CKEDITOR.NODE_TEXT && node.getText()) {
+
+                            nodeText = node.$.textContent;
+                            // walkerda html taglerinin içinde geziyor, eğer tag yani node, seçtiğim textleri kapsıyorsa bu if e giriyor ve rangin offsetleri arasında işlem yapıp çıkıyorumç
+                            if (node.equals(range.startContainer) && node.equals(range.endContainer)) {
+                                nodeText = nodeText.substr(0, range.startOffset)
+                                    + transformFunc(nodeText.substr(range.startOffset, range.endOffset - range.startOffset))
+                                    + nodeText.substr(range.endOffset);
+                            }
+                            // node lar arasında gezerken bulunduğum node, seçtiğim range nin başlangıcını kapsıyor bitişini kapsamıyorsa
+                            else if (node.equals(range.startContainer)) {
+
+                                nodeText = nodeText.substr(0, range.startOffset) +
+                                    transformFunc(nodeText.substr(range.startOffset));
+                            }
+                            //node lar arasında gezerken bulunduğum node, seçtiğim range nin bitişini kapsıyor başlangıcını kapsamıyorsa
+                            else if (node.equals(range.endContainer)) {
+
+                                nodeText = transformFunc(nodeText.substr(0, range.endOffset)) +
+                                    nodeText.substr(range.endOffset);
+                            }
+                            else {
+                            // bulunduğum node start yada end değil aradaki node larsa onları kafadan çeviriyoruz..
+                                nodeText = transformFunc(nodeText);
+                            }
+
+                            node.$.textContent = nodeText;
+                        }
+                    }
+                }
+                selection.selectRanges([range]);		//seçtiğim alanın highlight olarak kalmasını sağlıyorum.
+            }
+
+
             editor.addCommand('transformTextSwitch',
                 {
-                    exec : function()
-                    {
+                    exec: function () {
                         var selection = editor.getSelection();
                         var commandArray = ['transformTextToUppercase', 'transformTextToLowercase', 'transformTextCapitalize'];
 
@@ -29,7 +71,7 @@ CKEDITOR.plugins.add('texttransform',
 
                             selection.lock();
 
-                            editor.execCommand( commandArray[num] );
+                            editor.execCommand(commandArray[num]);
 
                             selection.unlock(true);
 
@@ -43,109 +85,67 @@ CKEDITOR.plugins.add('texttransform',
                     }
                 });
 
-            // add transformTextToUppercase command to be used with buttons and 'execCommand' method
             editor.addCommand('transformTextToUppercase',
                 {
-                    exec : function()
-                    {
-                        var selection = editor.getSelection();
-                        if (selection.getSelectedText().length > 0) {
-				var ranges = selection.getRanges(),
-				    walker = new CKEDITOR.dom.walker( ranges[0] ), 
-				    node;
-				while ( ( node = walker.next() ) ) 
-					if ( node.type == CKEDITOR.NODE_TEXT && node.getText() ) 
-						if (editor.langCode == "tr") {
-							node.$.textContent = node.$.textContent.trToUpperCase();
-						} else {
-							node.$.textContent = node.$.textContent.toLocaleUpperCase();		
-						}
-                        }//if
-                    } //func
+                    exec: function () {
+                        transformSelectedText(editor, function (text) {
+                            return text.trToUpperCase();
+                        });
+                    }
                 });
 
-            // add transformTextToUppercase command to be used with buttons and 'execCommand' method
             editor.addCommand('transformTextToLowercase',
                 {
-                    exec : function()
-                    {
-                        var selection = editor.getSelection();
-                        if (selection.getSelectedText().length > 0) {
-				var ranges = selection.getRanges(),
-				    walker = new CKEDITOR.dom.walker( ranges[0] ), 
-				    node;
-				while ( ( node = walker.next() ) ) 
-					if ( node.type == CKEDITOR.NODE_TEXT && node.getText() ) 
-						if (editor.langCode == "tr") {
-							node.$.textContent = node.$.textContent.trToLowerCase();
-						} else {
-							node.$.textContent = node.$.textContent.toLocaleLowerCase();		
-						}
-						
-                        }//if
+                    exec: function () {
+                        transformSelectedText(editor, function (text) {
+                            return text.trToLowerCase();
 
+                        });
                     }
                 });
 
-            // add transformTextCapitalize command to be used with buttons and 'execCommand' method
-            editor.addCommand( 'transformTextCapitalize',
+            editor.addCommand('transformTextCapitalize',
                 {
-                    exec : function()
-                    {
-                        var selection = editor.getSelection();
-                        if (selection.getSelectedText().length > 0) {
-				var ranges = selection.getRanges(),
-				    walker = new CKEDITOR.dom.walker( ranges[0] ), 
-				    node;
-				while ( ( node = walker.next() ) ) 
-					if ( node.type == CKEDITOR.NODE_TEXT && node.getText() )
-						node.$.textContent = node.$.textContent.replace(
-							/[^\s]\S*/g, 
-							function(txt){
-								if (editor.langCode == "tr") {
-									return  txt.charAt(0).trToUpperCase() + 
-										txt.substr(1).trToLowerCase();
-								} else {
-									return  txt.charAt(0).toLocaleUpperCase() + 
-										txt.substr(1).toLocaleLowerCase();
-								}
-							
-							}
-						);
-                        }//if
+                    exec: function () {
+                        transformSelectedText(editor, function (text) {
+
+                            return text.replace(/[^\s]\S*/g,
+                                function (word) {
+                                    return word.charAt(0).trToUpperCase() +
+                                        word.substr(1).trToLowerCase();
+                                }
+                            );
+                        });
                     }
                 });
 
-            // add TransformTextSwitcher button to editor
             editor.ui.addButton('TransformTextSwitcher',
                 {
                     label: editor.lang.texttransform.transformTextSwitchLabel,
                     command: 'transformTextSwitch',
                     icon: this.path + 'images/transformSwitcher.png'
-                } );
+                });
 
-            // add TransformTextToLowercase button to editor
             editor.ui.addButton('TransformTextToLowercase',
                 {
                     label: editor.lang.texttransform.transformTextToLowercaseLabel,
                     command: 'transformTextToLowercase',
                     icon: this.path + 'images/transformToLower.png'
-                } );
+                });
 
-            // add TransformTextToUppercase button to editor
             editor.ui.addButton('TransformTextToUppercase',
                 {
                     label: editor.lang.texttransform.transformTextToUppercaseLabel,
                     command: 'transformTextToUppercase',
                     icon: this.path + 'images/transformToUpper.png'
-                } );
+                });
 
-            // add TransformTextCapitalize button to editor
             editor.ui.addButton('TransformTextCapitalize',
                 {
                     label: editor.lang.texttransform.transformTextCapitalizeLabel,
                     command: 'transformTextCapitalize',
                     icon: this.path + 'images/transformCapitalize.png'
-                } );
+                });
         }
-    } );
+    });
+
